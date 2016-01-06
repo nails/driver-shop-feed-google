@@ -1,0 +1,44 @@
+{
+    "name": "nailsapp/driver-shop-feed-google",
+    "keywords": ["Nails", "Shop Module", "Feed Driver", "Google"],
+    "homepage": "http://nailsapp.co.uk/shop/shipping/driver/feed/google",
+    "description": "The Google feed driver for Nails shop",
+    "license": "MIT",
+    "authors":
+    [
+        {
+            "name": "Pablo de la Pena",
+            "email": "p@nailsapp.co.uk",
+            "homepage": "http://nailsapp.co.uk",
+            "role": "Developer"
+        }
+    ],
+    "support":
+    {
+        "email": "hello@nailsapp.co.uk"
+    },
+    "require":
+    {
+    },
+    "extra":
+    {
+        "nails" :
+        {
+            "name": "Flat Rate",
+            "type": "driver",
+            "forModule": "nailsapp/module-shop",
+            "subType": "feed",
+            "data": {
+                "namespace": "Nails\\Shop\\Driver\\Feed\\",
+                "class": "Google",
+                "settings": [
+                    {
+                        "key": "includeTax",
+                        "label": "Include Tax in price",
+                        "type": "boolean"
+                    }
+                ]
+            }
+        }
+    }
+}
