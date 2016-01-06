@@ -24,7 +24,7 @@
     {
         "nails" :
         {
-            "name": "Flat Rate",
+            "name": "Google Shopping",
             "type": "driver",
             "forModule": "nailsapp/module-shop",
             "subType": "feed",
