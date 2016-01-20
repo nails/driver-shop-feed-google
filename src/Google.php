@@ -7,27 +7,10 @@ use Nails\Shop\Driver\FeedBase;
 
 class Google extends FeedBase
 {
-    private $bIncludeTax = false;
-
-    // --------------------------------------------------------------------------
-
     /**
      * The number of products to process in each batch
      */
     const NUM_PER_PROCESS = 50;
-
-    // --------------------------------------------------------------------------
-
-    /**
-     * Accepts an array of config values from the main driver model
-     * @param array $aConfig The configs to set
-     * @return array
-     */
-    public function setconfig($aConfig)
-    {
-        parent::setConfig($aConfig);
-        $this->bIncludeTax = (bool) $aConfig['includeTax'];
-    }
 
     // --------------------------------------------------------------------------
 
@@ -104,6 +87,7 @@ class Google extends FeedBase
         //  Other details
         $sWarehouseCountry = appSetting('warehouse_addr_country', 'shop');
         $sInvoiceCompany   = appSetting('invoice_company', 'shop');
+        $bIncludeTax       = (bool) $this->getSetting('includeTax') ?: false;
 
         //  Fetch this batch of products
         $products   = $oProductModel->getAll($iPage, self::NUM_PER_PROCESS);
@@ -197,7 +181,7 @@ class Google extends FeedBase
                  * https://support.google.com/merchants/answer/2704214
                  */
 
-                if ($this->bIncludeTax) {
+                if ($bIncludeTax) {
 
                     $sPrice = $oCurrencyModel->formatBase($p->price->user->min_price_inc_tax, false);
 
@@ -210,7 +194,7 @@ class Google extends FeedBase
                 $sShippingPrice = $oCurrencyModel->formatBase($shippingData->base, false);
 
                 $temp->price = $sPrice . ' ' . $oBaseCurrency->code;
-                if (!$this->bIncludeTax) {
+                if (!$bIncludeTax) {
                     $temp->tax = $sTax . ' ' . $oBaseCurrency->code;
                 }
                 $temp->shipping_country = $sWarehouseCountry;
@@ -240,7 +224,7 @@ class Google extends FeedBase
                     fwrite($oData, '<g:condition>' . $item->condition . '</g:condition>');
                     fwrite($oData, '<g:availability>' . $item->availability . '</g:availability>');
                     fwrite($oData, '<g:price>' . $item->price . '</g:price>');
-                    if (!$this->bIncludeTax) {
+                    if (!$bIncludeTax) {
                         fwrite($oData, '<g:tax>' . $item->tax . '</g:tax>');
                     }
                     fwrite($oData, '<g:brand><![CDATA[' . htmlentities($item->brand) . ']]></g:brand>');
