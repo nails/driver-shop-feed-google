@@ -150,7 +150,12 @@ class Google extends FeedBase
                 // --------------------------------------------------------------------------
 
                 //  Set the product image
-                if ($p->featured_img) {
+
+                if ($v->featured_img) {
+
+                    $temp->image = cdnServe($v->featured_img);
+
+                } elseif ($p->featured_img) {
 
                     $temp->image = cdnServe($p->featured_img);
 
@@ -191,7 +196,7 @@ class Google extends FeedBase
                     $sTax   = $oCurrencyModel->formatBase($p->price->user->min_price_tax, false);
                 }
 
-                $sShippingPrice = $oCurrencyModel->formatBase($shippingData->base, false);
+                $sShippingPrice = $oCurrencyModel->formatBase($shippingData->total_inc_tax, false);
 
                 $temp->price = $sPrice . ' ' . $oBaseCurrency->code;
                 if (!$bIncludeTax) {
