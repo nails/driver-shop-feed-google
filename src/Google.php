@@ -16,50 +16,46 @@ class Google extends FeedBase
 
     /**
      * Generate the feed data
-     * @param  object $oHeader File handle to write headers to
-     * @param  string $oData   File handle to write data to
+     *
+     * @param  resource $rHeader File handle to write headers to
+     * @param  resource $rData   File handle to write data to
+     *
      * @return boolean
      */
-    public function generate($oHeader, $oData)
+    public function generate($rHeader, $rData)
     {
         //  Address formatting
-        $sAddress = trim(appSetting('invoice_address', 'shop'));
+        $sAddress = trim(appSetting('invoice_address', 'nailsapp/module-shop'));
         if (!empty($sAddress)) {
-
             $aAddress = explode("\n", $sAddress);
             $aAddress = array_filter($aAddress);
             $aAddress = array_map('trim', $aAddress);
-
         } else {
-
-            $aAddress = array();
+            $aAddress = [];
         }
 
         // --------------------------------------------------------------------------
 
         //  Write the opening structure of the file
-        fwrite($oData, '<?xml version="1.0" encoding="utf-8"?>');
-        fwrite($oData, '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">');
-        fwrite($oData, '<channel>');
-        fwrite($oData, '<title><![CDATA[' . appSetting('invoice_company', 'shop') . ']]></title>');
-        fwrite($oData, '<description><![CDATA[' . implode(', ', $aAddress) . ']]></description>');
-        fwrite($oData, '<link><![CDATA[' . BASE_URL . ']]></link>');
+        fwrite($rData, '<?xml version="1.0" encoding="utf-8"?>');
+        fwrite($rData, '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">');
+        fwrite($rData, '<channel>');
+        fwrite($rData, '<title><![CDATA[' . appSetting('invoice_company', 'shop') . ']]></title>');
+        fwrite($rData, '<description><![CDATA[' . implode(', ', $aAddress) . ']]></description>');
+        fwrite($rData, '<link><![CDATA[' . BASE_URL . ']]></link>');
 
         $iPage = 0;
         do {
-
-            $iNumProcessed = $this->processProducts($iPage, $oData);
+            $iNumProcessed = $this->processProducts($iPage, $rData);
             $iPage++;
-
         } while ($iNumProcessed != 0);
 
-
         //  Close the file off
-        fwrite($oData, '</channel>');
-        fwrite($oData, '</rss>');
+        fwrite($rData, '</channel>');
+        fwrite($rData, '</rss>');
 
         //  Write the headers
-        fwrite($oHeader, 'Content-Type: text/xml');
+        fwrite($rHeader, 'Content-Type: text/xml');
 
         return true;
     }
@@ -69,11 +65,13 @@ class Google extends FeedBase
 
     /**
      * Process a batch of products
-     * @param  integer $iPage The page number
-     * @param  object  $oData The file handle for the data file
+     *
+     * @param  integer  $iPage The page number
+     * @param  resource $rData The file handle for the data file
+     *
      * @return integer The number of products processed
      */
-    public function processProducts($iPage, $oData)
+    public function processProducts($iPage, $rData)
     {
         //  Models
         $oCurrencyModel       = Factory::model('Currency', 'nailsapp/module-shop');
@@ -81,134 +79,115 @@ class Google extends FeedBase
         $oShippingDriverModel = Factory::model('ShippingDriver', 'nailsapp/module-shop');
 
         //  Get the base currency
-        $sBaseCurrency = appSetting('base_currency', 'shop');
+        $sBaseCurrency = appSetting('base_currency', 'nailsapp/module-shop');
         $oBaseCurrency = $oCurrencyModel->getByCode($sBaseCurrency);
 
         //  Other details
-        $sWarehouseCountry = appSetting('warehouse_addr_country', 'shop');
-        $sInvoiceCompany   = appSetting('invoice_company', 'shop');
+        $sWarehouseCountry = appSetting('warehouse_addr_country', 'nailsapp/module-shop');
+        $sInvoiceCompany   = appSetting('invoice_company', 'nailsapp/module-shop');
         $bIncludeTax       = (bool) $this->getSetting('includeTax') ?: false;
 
         //  Fetch this batch of products
-        $products   = $oProductModel->getAll($iPage, self::NUM_PER_PROCESS);
-        $aToProcess = array();
+        $aProducts  = $oProductModel->getAll($iPage, self::NUM_PER_PROCESS);
+        $aToProcess = [];
 
         //  Format the batch
-        foreach ($products as $p) {
-            foreach ($p->variations as $v) {
+        foreach ($aProducts as $oProduct) {
+            foreach ($oProduct->variations as $oVariant) {
 
-                $temp = new \stdClass();
-
-                //  General product fields
-                if ($p->label != $v->label) {
-
-                    $temp->title = $p->label . ' - ' . $v->label;
-
-                } else {
-
-                    $temp->title = $p->label;
+                if ($oVariant->stock_status != 'IN_STOCK') {
+                    continue;
                 }
 
-                $temp->url             = $p->url;
-                $temp->description     = trim(strip_tags($p->description));
-                $temp->productId       = $p->id;
-                $temp->variantId       = $v->id;
-                $temp->condition       = 'new';
-                $temp->sku             = $v->sku;
-                $temp->google_category = $p->google_category;
+                $oTemp = new \stdClass();
+
+                //  General product fields
+                if ($oProduct->label != $oVariant->label) {
+                    $oTemp->title = $oProduct->label . ' - ' . $oVariant->label;
+                } else {
+                    $oTemp->title = $oProduct->label;
+                }
+
+                $oTemp->url             = $oProduct->url;
+                $oTemp->description     = trim(strip_tags($oProduct->description));
+                $oTemp->productId       = $oProduct->id;
+                $oTemp->variantId       = $oVariant->id;
+                $oTemp->condition       = 'new';
+                $oTemp->sku             = $oVariant->sku;
+                $oTemp->google_category = $oProduct->google_category;
 
                 // --------------------------------------------------------------------------
 
                 //  Work out the brand
-                if (isset($p->brands[0])) {
-
-                    $temp->brand = $p->brands[0]->label;
-
+                if (isset($oProduct->brands[0])) {
+                    $oTemp->brand = $oProduct->brands[0]->label;
                 } else {
-
-                    $temp->brand = $sInvoiceCompany;
+                    $oTemp->brand = $sInvoiceCompany;
                 }
 
                 // --------------------------------------------------------------------------
 
                 //  Work out the product type (category)
-                if (!empty($p->categories)) {
-
-                    $category = array();
-                    foreach ($p->categories as $c) {
-
+                if (!empty($oProduct->categories)) {
+                    $category = [];
+                    foreach ($oProduct->categories as $c) {
                         $category[] = $c->label;
                     }
-
-                    $temp->category = implode(', ', $category);
-
+                    $oTemp->category = implode(', ', $category);
                 } else {
-
-                    $temp->category = '';
+                    $oTemp->category = '';
                 }
 
                 // --------------------------------------------------------------------------
 
                 //  Set the product image
-
-                if ($v->featured_img) {
-
-                    $temp->image = cdnServe($v->featured_img);
-
-                } elseif ($p->featured_img) {
-
-                    $temp->image = cdnServe($p->featured_img);
-
+                if ($oVariant->featured_img) {
+                    $oTemp->image = cdnServe($oVariant->featured_img);
+                } elseif ($oProduct->featured_img) {
+                    $oTemp->image = cdnServe($oProduct->featured_img);
                 } else {
-
-                    $temp->image = '';
+                    $oTemp->image = '';
                 }
 
                 // --------------------------------------------------------------------------
 
                 //  Stock status
-                if ($v->stock_status == 'IN_STOCK') {
-
-                    $temp->availability = 'in stock';
-
+                if ($oVariant->stock_status == 'IN_STOCK') {
+                    $oTemp->availability = 'in stock';
                 } else {
-
-                    $temp->availability = 'out of stock';
+                    $oTemp->availability = 'out of stock';
                 }
 
                 // --------------------------------------------------------------------------
 
-                $shippingData = $oShippingDriverModel->calculateVariant($v->id);
+                $shippingData = $oShippingDriverModel->calculateVariant($oVariant->id);
 
-                //  Calculate price and price of shipping
                 /**
+                 * Calculate price and price of shipping
                  * Tax/VAT should NOT be included:
                  * https://support.google.com/merchants/answer/2704214
                  */
 
                 if ($bIncludeTax) {
-
-                    $sPrice = $oCurrencyModel->formatBase($p->price->user->min_price_inc_tax, false);
-
+                    $sPrice = $oCurrencyModel->formatBase($oProduct->price->user->min_price_inc_tax, false);
                 } else {
-
-                    $sPrice = $oCurrencyModel->formatBase($p->price->user->min_price_ex_tax, false);
-                    $sTax   = $oCurrencyModel->formatBase($p->price->user->min_price_tax, false);
+                    $sPrice = $oCurrencyModel->formatBase($oProduct->price->user->min_price_ex_tax, false);
+                    $sTax   = $oCurrencyModel->formatBase($oProduct->price->user->min_price_tax, false);
                 }
 
                 $sShippingPrice = $oCurrencyModel->formatBase($shippingData->total_inc_tax, false);
 
-                $temp->price = $sPrice . ' ' . $oBaseCurrency->code;
+                $oTemp->price = $sPrice . ' ' . $oBaseCurrency->code;
                 if (!$bIncludeTax) {
-                    $temp->tax = $sTax . ' ' . $oBaseCurrency->code;
+                    $oTemp->tax = $sTax . ' ' . $oBaseCurrency->code;
                 }
-                $temp->shipping_country = $sWarehouseCountry;
-                $temp->shipping_service = 'Standard';
-                $temp->shipping_price   = $sShippingPrice . ' ' . $oBaseCurrency->code;
+                $oTemp->shipping_country = $sWarehouseCountry;
+                $oTemp->shipping_service = 'Standard';
+                $oTemp->shipping_price   = $sShippingPrice . ' ' . $oBaseCurrency->code;
 
                 // --------------------------------------------------------------------------
 
-                $aToProcess[] = $temp;
+                $aToProcess[] = $oTemp;
             }
         }
 
@@ -216,33 +195,33 @@ class Google extends FeedBase
 
         //  Write the product data
         if (!empty($aToProcess)) {
-            foreach ($aToProcess as $item) {
+            foreach ($aToProcess as $oItem) {
 
-                fwrite($oData, '<item>');
-                    fwrite($oData, '<g:id>' . $item->productId . '.' . $item->variantId . '</g:id>');
-                    fwrite($oData, '<title><![CDATA[' . htmlentities($item->title) . ']]></title>');
-                    fwrite($oData, '<description><![CDATA[' . htmlentities($item->description) . ']]></description>');
-                    fwrite($oData, '<g:product_type><![CDATA[' . htmlentities($item->category) . ']]></g:product_type>');
-                    fwrite($oData, $item->google_category ? '<g:google_product_category>' . htmlentities($item->google_category) . '</g:google_product_category>' : '');
-                    fwrite($oData, '<link>' . $item->url . '</link>');
-                    fwrite($oData, '<g:image_link>' . $item->image . '</g:image_link>');
-                    fwrite($oData, '<g:condition>' . $item->condition . '</g:condition>');
-                    fwrite($oData, '<g:availability>' . $item->availability . '</g:availability>');
-                    fwrite($oData, '<g:price>' . $item->price . '</g:price>');
-                    if (!$bIncludeTax) {
-                        fwrite($oData, '<g:tax>' . $item->tax . '</g:tax>');
-                    }
-                    fwrite($oData, '<g:brand><![CDATA[' . htmlentities($item->brand) . ']]></g:brand>');
-                    fwrite($oData, '<g:gtin>' . $item->sku . '</g:gtin>');
-                    fwrite($oData, '<g:shipping>');
-                        fwrite($oData, '<g:country>' . htmlentities($item->shipping_country) . '</g:country>');
-                        fwrite($oData, '<g:service>' . $item->shipping_service . '</g:service>');
-                        fwrite($oData, '<g:price>' . $item->shipping_price . '</g:price>');
-                    fwrite($oData, '</g:shipping>');
-                fwrite($oData, '</item>');
+                fwrite($rData, '<item>');
+                fwrite($rData, '<g:id>' . $oItem->productId . '.' . $oItem->variantId . '</g:id>');
+                fwrite($rData, '<title><![CDATA[' . htmlentities($oItem->title) . ']]></title>');
+                fwrite($rData, '<description><![CDATA[' . htmlentities($oItem->description) . ']]></description>');
+                fwrite($rData, '<g:product_type><![CDATA[' . htmlentities($oItem->category) . ']]></g:product_type>');
+                fwrite($rData, $oItem->google_category ? '<g:google_product_category>' . htmlentities($oItem->google_category) . '</g:google_product_category>' : '');
+                fwrite($rData, '<link>' . $oItem->url . '</link>');
+                fwrite($rData, '<g:image_link>' . $oItem->image . '</g:image_link>');
+                fwrite($rData, '<g:condition>' . $oItem->condition . '</g:condition>');
+                fwrite($rData, '<g:availability>' . $oItem->availability . '</g:availability>');
+                fwrite($rData, '<g:price>' . $oItem->price . '</g:price>');
+                if (!$bIncludeTax) {
+                    fwrite($rData, '<g:tax>' . $oItem->tax . '</g:tax>');
+                }
+                fwrite($rData, '<g:brand><![CDATA[' . htmlentities($oItem->brand) . ']]></g:brand>');
+                fwrite($rData, '<g:gtin>' . $oItem->sku . '</g:gtin>');
+                fwrite($rData, '<g:shipping>');
+                fwrite($rData, '<g:country>' . htmlentities($oItem->shipping_country) . '</g:country>');
+                fwrite($rData, '<g:service>' . $oItem->shipping_service . '</g:service>');
+                fwrite($rData, '<g:price>' . $oItem->shipping_price . '</g:price>');
+                fwrite($rData, '</g:shipping>');
+                fwrite($rData, '</item>');
             }
         }
 
-        return count($products);
+        return count($aProducts);
     }
 }
