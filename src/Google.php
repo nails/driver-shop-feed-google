@@ -169,10 +169,10 @@ class Google extends FeedBase
                  */
 
                 if ($bIncludeTax) {
-                    $sPrice = $oCurrencyModel->formatBase($oProduct->price->user->min_price_inc_tax, false);
+                    $sPrice = $oCurrencyModel->formatBase($oVariant->price->price->user->value_inc_tax, false);
                 } else {
-                    $sPrice = $oCurrencyModel->formatBase($oProduct->price->user->min_price_ex_tax, false);
-                    $sTax   = $oCurrencyModel->formatBase($oProduct->price->user->min_price_tax, false);
+                    $sPrice = $oCurrencyModel->formatBase($oVariant->price->price->user->value_ex_tax, false);
+                    $sTax   = $oCurrencyModel->formatBase($oVariant->price->price->user->value_tax, false);
                 }
 
                 $sShippingPrice = $oCurrencyModel->formatBase($shippingData->total_inc_tax, false);
